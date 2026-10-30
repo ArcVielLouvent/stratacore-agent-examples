@@ -1,0 +1,44 @@
+# Reports an end-to-end test result to StrataCore after each pull request run.
+# Store the token as a repository secret named STRATACORE_AGENT_TOKEN. Do not commit it.
+name: Report tests to StrataCore
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - id: tests
+        run: |
+          set +e
+          start=$(date +%s%3N)
+          npm test
+          code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "ms=$(( $(date +%s%3N) - start ))" >> "$GITHUB_OUTPUT"
+          exit 0   # the report step decides how the job ends
+      - name: Send result
+        env:
+          STRATACORE_URL: ${{ vars.STRATACORE_URL || 'https://stratacore.dev' }}
+          STRATACORE_AGENT_TOKEN: ${{ secrets.STRATACORE_AGENT_TOKEN }}
+          CODE: ${{ steps.tests.outputs.code }}
+          MS: ${{ steps.tests.outputs.ms }}
+          PR: ${{ github.event.pull_request.number }}
+          SERVICE: ${{ github.event.repository.name }}
+        run: |
+          status=passed; failed=0
+          if [ "$CODE" != "0" ]; then status=failed; failed=1; fi
+          jq -n --arg svc "$SERVICE" --arg pr "$PR" --arg st "$status" --argjson f "$failed" --argjson ms "$MS" \
+            '{tests:[{service_name:$svc, pr_number:$pr, kind:"e2e", status:$st, passed:(1-$f), failed:$f, duration_ms:$ms}]}' \
+          | curl --fail-with-body -sS -X POST "$STRATACORE_URL/api/agent/report" \
+              -H "Authorization: Bearer $STRATACORE_AGENT_TOKEN" -H "Content-Type: application/json" --data @-
+      - name: Fail the job if tests failed
+        if: steps.tests.outputs.code != '0'
+        run: exit 1

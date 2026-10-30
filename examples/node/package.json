@@ -1,0 +1,10 @@
+{
+  "name": "stratacore-agent-examples",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "agent": "node agent.mjs",
+    "report": "node report.mjs"
+  }
+}

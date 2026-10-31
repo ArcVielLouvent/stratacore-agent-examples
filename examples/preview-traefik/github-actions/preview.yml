@@ -1,0 +1,23 @@
+# Copy to .github/workflows/preview.yml in your app repository.
+name: preview
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+jobs:
+  preview:
+    # skip forks: they must not reach your server
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: deploy
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            if [ "${{ github.event.action }}" = "closed" ]; then
+              /opt/previews/teardown.sh ${{ github.event.number }}
+            else
+              /opt/previews/deploy.sh ${{ github.event.number }} ${{ github.event.pull_request.head.sha }}
+            fi

@@ -1,0 +1,48 @@
+name: test-preview-routing
+on: workflow_dispatch
+
+jobs:
+  routing:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Network and Traefik
+        run: |
+          docker network create web
+          docker run -d --name traefik --network web -p 80:80 \
+            -v /var/run/docker.sock:/var/run/docker.sock:ro \
+            traefik:v3 \
+            --providers.docker=true \
+            --providers.docker.exposedbydefault=false \
+            --providers.docker.network=web \
+            --entrypoints.web.address=:80
+
+      - name: Start two fake PR previews
+        run: |
+          for PR in 1 2; do
+            docker run -d --name app-$PR --network web \
+              -l traefik.enable=true \
+              -l "traefik.http.routers.pr-$PR.rule=Host(\`pr-$PR.preview.test\`)" \
+              -l traefik.http.routers.pr-$PR.entrypoints=web \
+              -l traefik.http.services.pr-$PR.loadbalancer.server.port=80 \
+              traefik/whoami
+          done
+
+      - name: Each hostname reaches its own container
+        run: |
+          for i in $(seq 1 30); do
+            A=$(curl -s -H 'Host: pr-1.preview.test' http://localhost/ | grep '^Hostname:' || true)
+            B=$(curl -s -H 'Host: pr-2.preview.test' http://localhost/ | grep '^Hostname:' || true)
+            [ -n "$A" ] && [ -n "$B" ] && break
+            sleep 1
+          done
+          echo "pr-1 -> $A"
+          echo "pr-2 -> $B"
+          [ -n "$A" ] && [ -n "$B" ] && [ "$A" != "$B" ]
+
+      - name: Teardown removes the route
+        run: |
+          docker rm -f app-2
+          sleep 3
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: pr-2.preview.test' http://localhost/)
+          echo "pr-2 after teardown: HTTP $CODE"
+          [ "$CODE" = "404" ]

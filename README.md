@@ -12,6 +12,7 @@ This repository contains examples only. It does not contain the StrataCore appli
 | `examples/node/agent.mjs` | A polling agent. Handlers log what they would do until `DRY_RUN=false`. |
 | `examples/node/report.mjs` | Sending a telemetry report with services, previews and test results. |
 | `examples/node/run-with-secrets.mjs` | Running a command with secrets injected into its environment only. |
+| `examples/python/agent.py` | The same polling agent in Python 3.9 or later, standard library only. |
 | `examples/github-actions/report-tests.yml` | A workflow that reports end-to-end test results for each pull request. |
 | `docs/protocol.md` | Endpoint reference, job kinds, telemetry shape and secret-handling guidance. |
 
@@ -24,6 +25,8 @@ cd stratacore-agent-examples/examples/node
 export STRATACORE_AGENT_TOKEN="sc_live_..."   # created in the StrataCore console
 node agent.mjs                                # dry run by default: it only logs
 ```
+
+Python: `python3 examples/python/agent.py --once` with the same environment variables.
 
 To see the protocol without a live account, point `STRATACORE_URL` at any server that implements the endpoints in `docs/protocol.md`.
 

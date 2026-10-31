@@ -1,0 +1,16 @@
+# Sample app. Replace the image (or use `build: .`) and the port with your own.
+# PR is the pull request number, passed in by scripts/deploy.sh.
+services:
+  web:
+    image: traefik/whoami
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.pr-${PR}.rule=Host(`pr-${PR}.${PREVIEW_DOMAIN:-preview.example.com}`)
+      - traefik.http.routers.pr-${PR}.entrypoints=websecure
+      - traefik.http.routers.pr-${PR}.tls=true
+      - traefik.http.services.pr-${PR}.loadbalancer.server.port=80
+    networks: [web]
+
+networks:
+  web:
+    external: true
